@@ -1,9 +1,21 @@
-index<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <title>Attestation de travaux - Challenge Bat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+  <script
+    type="text/javascript"
+    src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
+  </script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+    integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer">
+  </script>
 
   <style>
     :root {
@@ -30,15 +42,43 @@ index<!DOCTYPE html>
       border-bottom: 1px solid #ccc;
       display: flex;
       gap: 8px;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
       position: sticky;
       top: 0;
       z-index: 100;
     }
 
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-title {
+      font-weight: bold;
+    }
+
+    .toolbar-right input[type="email"] {
+      min-width: 250px;
+      padding: 7px 10px;
+      border-radius: 4px;
+      border: 1px solid #999;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .toolbar-right input[type="email"]:focus {
+      outline: none;
+      border-color: #666;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.06);
+    }
+
     .no-print button {
-      padding: 6px 12px;
+      padding: 7px 12px;
       border-radius: 4px;
       border: 1px solid #999;
       background: white;
@@ -48,6 +88,41 @@ index<!DOCTYPE html>
 
     .no-print button:hover {
       background: #eee;
+    }
+
+    .send-btn {
+      background: #111 !important;
+      color: #fff;
+      border-color: #111 !important;
+    }
+
+    .send-btn:hover {
+      background: #333 !important;
+    }
+
+    .send-btn:disabled,
+    .no-print button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .status-message {
+      min-height: 18px;
+      font-size: 12px;
+      color: #444;
+      margin-left: 6px;
+    }
+
+    .status-message.success {
+      color: #0a7a24;
+    }
+
+    .status-message.error {
+      color: #b42318;
+    }
+
+    .status-message.info {
+      color: #1d4ed8;
     }
 
     /* Conteneur de page type A4 */
@@ -71,6 +146,20 @@ index<!DOCTYPE html>
         padding: 12px;
         box-shadow: none;
         border-radius: 0;
+      }
+
+      .toolbar-right {
+        width: 100%;
+      }
+
+      .toolbar-right input[type="email"] {
+        flex: 1;
+        min-width: 180px;
+      }
+
+      .status-message {
+        width: 100%;
+        margin-left: 0;
       }
     }
 
@@ -358,8 +447,18 @@ index<!DOCTYPE html>
 <body>
 
 <div class="no-print">
-  <span>Attestation de travaux</span>
-  <button type="button" onclick="window.print()">📄 Exporter en PDF</button>
+  <div class="toolbar-left">
+    <span class="toolbar-title">Attestation de travaux</span>
+  </div>
+  <div class="toolbar-right">
+    <input
+      id="recipient_email"
+      type="email"
+      placeholder="destinataire@exemple.com (optionnel si défini dans EmailJS)">
+    <button type="button" id="download-pdf-btn">📄 Exporter en PDF</button>
+    <button type="button" id="send-email-btn" class="send-btn">✉️ Envoyer</button>
+    <span id="status-message" class="status-message" aria-live="polite"></span>
+  </div>
 </div>
 
 <div class="page">
@@ -543,6 +642,376 @@ index<!DOCTYPE html>
 </div>
 
 <script>
+  const EMAILJS_PUBLIC_KEY = '42fcs_J7GqnWNi7BU';
+  const EMAILJS_SERVICE_ID = 'service_g906wal';
+  const EMAILJS_TEMPLATE_ID = 'template_zq021ta';
+  const PDF_ATTACHMENT_PARAM = 'pdf_attachment';
+
+  let isSendingEmail = false;
+
+  function setStatus(message, type) {
+    const el = document.getElementById('status-message');
+    if (!el) return;
+    el.textContent = message || '';
+    el.className = 'status-message' + (type ? ' ' + type : '');
+  }
+
+  function slugify(value) {
+    return (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase();
+  }
+
+  function formatDateForDisplay(value) {
+    if (!value) return '';
+    const parts = value.split('-');
+    if (parts.length !== 3) return value;
+    return [parts[2], parts[1], parts[0]].join('/');
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function isCanvasBlank(canvas) {
+    const context = canvas.getContext('2d');
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const a = pixels[i + 3];
+      if (!(r === 255 && g === 255 && b === 255 && a === 255)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function initAcceptanceCheckboxes() {
+    const sansReserve = document.getElementById('acceptation_sans_reserve');
+    const avecReserve = document.getElementById('acceptation_avec_reserve');
+
+    if (!sansReserve || !avecReserve) return;
+
+    sansReserve.addEventListener('change', function () {
+      if (this.checked) {
+        avecReserve.checked = false;
+      }
+    });
+
+    avecReserve.addEventListener('change', function () {
+      if (this.checked) {
+        sansReserve.checked = false;
+      }
+    });
+  }
+
+  function initToolbarActions() {
+    const pdfBtn = document.getElementById('download-pdf-btn');
+    const sendBtn = document.getElementById('send-email-btn');
+
+    if (pdfBtn) {
+      pdfBtn.addEventListener('click', async function () {
+        try {
+          setStatus('Génération du PDF…', 'info');
+          const data = collectFormData();
+          await exportPdfFile(data.pdf_filename);
+          setStatus('PDF généré avec succès.', 'success');
+        } catch (error) {
+          console.error(error);
+          setStatus('Impossible de générer le PDF.', 'error');
+        }
+      });
+    }
+
+    if (sendBtn) {
+      sendBtn.addEventListener('click', sendFormByEmail);
+    }
+  }
+
+  function collectFormData() {
+    const data = {};
+    const fields = document.querySelectorAll('.page input, .page textarea');
+
+    fields.forEach(function (field) {
+      const key = field.name || field.id;
+      if (!key) return;
+
+      if (field.type === 'checkbox') {
+        data[key] = field.checked;
+      } else {
+        data[key] = field.value ? field.value.trim() : '';
+      }
+    });
+
+    const canvases = document.querySelectorAll('.signature-pad canvas');
+    data.signature_installateur_presente = canvases[0] ? !isCanvasBlank(canvases[0]) : false;
+    data.signature_client_presente = canvases[1] ? !isCanvasBlank(canvases[1]) : false;
+
+    data.acceptation_statut = data.acceptation_sans_reserve
+      ? 'Sans réserves'
+      : data.acceptation_avec_reserve
+        ? 'Avec réserves'
+        : 'Non renseigné';
+
+    const options = [
+      ['client_absent', 'Client absent lors de la restitution du chantier'],
+      ['poignees_non_posees', 'Poignées non posées'],
+      ['baguette_non_posee', 'Baguette de jonction non posée'],
+      ['pas_rev_mural', 'Pas de revêtement mural posé'],
+      ['appareils_non_raccordes', 'Appareils électroménager non raccordés'],
+      ['joints_non_faits', 'Joints silicone non faits'],
+      ['films_non_retires', 'Films protecteurs non retirés']
+    ];
+
+    data.options_cochees = options
+      .filter(([key]) => data[key])
+      .map(([, label]) => label);
+
+    data.options_cochees_text = data.options_cochees.length
+      ? data.options_cochees.join(', ')
+      : 'Aucune';
+
+    data.date_travaux_display = formatDateForDisplay(data.date_travaux);
+    data.date_livraison_display = formatDateForDisplay(data.date_livraison);
+    data.date_reception_display = formatDateForDisplay(data.date_reception);
+    data.recipient_email = (document.getElementById('recipient_email')?.value || '').trim();
+    data.pdf_filename = buildPdfFilename(data);
+    data.email_subject = 'Attestation de travaux - ' + (data.client || 'Sans client') +
+      (data.date_reception_display ? ' - ' + data.date_reception_display : '');
+    data.summary_html = buildSummaryHtml(data);
+    data.summary_text = buildSummaryText(data);
+
+    return data;
+  }
+
+  function buildSummaryHtml(data) {
+    return `
+      <h2>Attestation de travaux</h2>
+      <p><strong>Client :</strong> ${escapeHtml(data.client || 'Non renseigné')}</p>
+      <p><strong>Code :</strong> ${escapeHtml(data.code || 'Non renseigné')}</p>
+      <p><strong>Adresse :</strong> ${escapeHtml(data.adresse || 'Non renseignée')}</p>
+      <p><strong>Téléphone :</strong> ${escapeHtml(data.tel || 'Non renseigné')}</p>
+      <p><strong>Type TVA :</strong> ${escapeHtml(data.tva || 'Non renseigné')}</p>
+      <p><strong>Nature des travaux :</strong> ${escapeHtml(data.nature || 'Non renseignée')}</p>
+      <p><strong>Date des travaux :</strong> ${escapeHtml(data.date_travaux_display || 'Non renseignée')}</p>
+      <p><strong>Technicien :</strong> ${escapeHtml(data.technicien || 'Non renseigné')}</p>
+      <p><strong>Acceptation :</strong> ${escapeHtml(data.acceptation_statut)}</p>
+      <p><strong>Réserves :</strong><br>${escapeHtml(data.reservations || 'Aucune').replace(/\n/g, '<br>')}</p>
+      <p><strong>Remarques client :</strong><br>${escapeHtml(data.remarques_client || 'Aucune').replace(/\n/g, '<br>')}</p>
+      <p><strong>Cases cochées :</strong> ${escapeHtml(data.options_cochees_text)}</p>
+      <p><strong>Infos pour technicien :</strong><br>${escapeHtml(data.infos_technicien || 'Aucune').replace(/\n/g, '<br>')}</p>
+      <p><strong>Reste à faire :</strong><br>${escapeHtml(data.reste_a_faire || 'Aucun').replace(/\n/g, '<br>')}</p>
+      <p><strong>Date de livraison :</strong> ${escapeHtml(data.date_livraison_display || 'Non renseignée')}</p>
+      <p><strong>Solde à récupérer :</strong> ${escapeHtml(data.solde || 'Non renseigné')}</p>
+      <p><strong>Heure d'arrivée :</strong> ${escapeHtml(data.heure_arrivee || 'Non renseignée')}</p>
+      <p><strong>Heure de départ :</strong> ${escapeHtml(data.heure_depart || 'Non renseignée')}</p>
+      <p><strong>Date de réception :</strong> ${escapeHtml(data.date_reception_display || 'Non renseignée')}</p>
+      <p><strong>Signature installateur :</strong> ${data.signature_installateur_presente ? 'Oui' : 'Non'}</p>
+      <p><strong>Signature client :</strong> ${data.signature_client_presente ? 'Oui' : 'Non'}</p>
+    `;
+  }
+
+  function buildSummaryText(data) {
+    return [
+      'Attestation de travaux',
+      'Client : ' + (data.client || 'Non renseigné'),
+      'Code : ' + (data.code || 'Non renseigné'),
+      'Adresse : ' + (data.adresse || 'Non renseignée'),
+      'Téléphone : ' + (data.tel || 'Non renseigné'),
+      'Type TVA : ' + (data.tva || 'Non renseigné'),
+      'Nature des travaux : ' + (data.nature || 'Non renseignée'),
+      'Date des travaux : ' + (data.date_travaux_display || 'Non renseignée'),
+      'Technicien : ' + (data.technicien || 'Non renseigné'),
+      'Acceptation : ' + data.acceptation_statut,
+      'Réserves : ' + (data.reservations || 'Aucune'),
+      'Remarques client : ' + (data.remarques_client || 'Aucune'),
+      'Cases cochées : ' + data.options_cochees_text,
+      'Infos pour technicien : ' + (data.infos_technicien || 'Aucune'),
+      'Reste à faire : ' + (data.reste_a_faire || 'Aucun'),
+      'Date de livraison : ' + (data.date_livraison_display || 'Non renseignée'),
+      'Solde à récupérer : ' + (data.solde || 'Non renseigné'),
+      'Heure d\'arrivée : ' + (data.heure_arrivee || 'Non renseignée'),
+      'Heure de départ : ' + (data.heure_depart || 'Non renseignée'),
+      'Date de réception : ' + (data.date_reception_display || 'Non renseignée'),
+      'Signature installateur : ' + (data.signature_installateur_presente ? 'Oui' : 'Non'),
+      'Signature client : ' + (data.signature_client_presente ? 'Oui' : 'Non')
+    ].join('\n');
+  }
+
+  function buildPdfFilename(data) {
+    const client = slugify(data.client || 'client');
+    const date = slugify(data.date_reception || data.date_travaux || new Date().toISOString().slice(0, 10));
+    return 'attestation-travaux-' + client + '-' + date + '.pdf';
+  }
+
+  function prepareCloneForPdf(clone) {
+    const originalFields = document.querySelectorAll('.page input, .page textarea');
+    const cloneFields = clone.querySelectorAll('input, textarea');
+
+    originalFields.forEach(function (originalField, index) {
+      const cloneField = cloneFields[index];
+      if (!cloneField) return;
+
+      if (originalField.type === 'checkbox') {
+        cloneField.checked = originalField.checked;
+        if (originalField.checked) {
+          cloneField.setAttribute('checked', 'checked');
+        } else {
+          cloneField.removeAttribute('checked');
+        }
+      } else if (originalField.tagName === 'TEXTAREA') {
+        cloneField.value = originalField.value;
+        cloneField.textContent = originalField.value;
+      } else {
+        cloneField.value = originalField.value;
+        cloneField.setAttribute('value', originalField.value);
+      }
+    });
+
+    const originalCanvases = document.querySelectorAll('.signature-pad canvas');
+    const cloneCanvases = clone.querySelectorAll('.signature-pad canvas');
+
+    originalCanvases.forEach(function (originalCanvas, index) {
+      const cloneCanvas = cloneCanvases[index];
+      if (!cloneCanvas) return;
+      cloneCanvas.width = originalCanvas.width;
+      cloneCanvas.height = originalCanvas.height;
+      const ctx = cloneCanvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cloneCanvas.width, cloneCanvas.height);
+      ctx.drawImage(originalCanvas, 0, 0);
+    });
+  }
+
+  function createPdfWorker(filename) {
+    const source = document.querySelector('.page');
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-100000px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '210mm';
+    wrapper.style.background = '#fff';
+    wrapper.style.zIndex = '-1';
+
+    const clone = source.cloneNode(true);
+    prepareCloneForPdf(clone);
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    const options = {
+      margin: 0,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        scrollY: 0
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    const worker = html2pdf().set(options).from(clone);
+
+    return {
+      worker,
+      cleanup() {
+        wrapper.remove();
+      }
+    };
+  }
+
+  async function exportPdfFile(filename) {
+    const { worker, cleanup } = createPdfWorker(filename);
+    try {
+      await worker.save();
+    } finally {
+      cleanup();
+    }
+  }
+
+  async function buildPdfDataUri(filename) {
+    const { worker, cleanup } = createPdfWorker(filename);
+    try {
+      return await worker.outputPdf('datauristring');
+    } finally {
+      cleanup();
+    }
+  }
+
+  async function sendFormByEmail() {
+    if (isSendingEmail) return;
+
+    if (!EMAILJS_TEMPLATE_ID) {
+      setStatus('Ajoute ton vrai template ID EmailJS dans le code avant de tester l’envoi.', 'error');
+      return;
+    }
+
+    isSendingEmail = true;
+    const sendBtn = document.getElementById('send-email-btn');
+    if (sendBtn) sendBtn.disabled = true;
+
+    try {
+      setStatus('Préparation du PDF…', 'info');
+      const data = collectFormData();
+      const pdfDataUri = await buildPdfDataUri(data.pdf_filename);
+
+      setStatus('Envoi de l’email…', 'info');
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: data.recipient_email,
+        email_subject: data.email_subject,
+        client: data.client,
+        code: data.code,
+        adresse: data.adresse,
+        tel: data.tel,
+        tva: data.tva,
+        nature: data.nature,
+        date_travaux: data.date_travaux_display,
+        technicien: data.technicien,
+        remarques_client: data.remarques_client,
+        acceptation_statut: data.acceptation_statut,
+        reservations: data.reservations,
+        options_cochees: data.options_cochees_text,
+        infos_technicien: data.infos_technicien,
+        reste_a_faire: data.reste_a_faire,
+        date_livraison: data.date_livraison_display,
+        solde: data.solde,
+        heure_arrivee: data.heure_arrivee,
+        heure_depart: data.heure_depart,
+        date_reception: data.date_reception_display,
+        signature_installateur_presente: data.signature_installateur_presente ? 'Oui' : 'Non',
+        signature_client_presente: data.signature_client_presente ? 'Oui' : 'Non',
+        summary_html: data.summary_html,
+        summary_text: data.summary_text,
+        pdf_filename: data.pdf_filename,
+        [PDF_ATTACHMENT_PARAM]: pdfDataUri
+      });
+
+      setStatus('Email envoyé avec succès.', 'success');
+    } catch (error) {
+      console.error('EmailJS error:', error);
+      setStatus('Échec de l’envoi. Vérifie le template ID, le domaine autorisé et la config EmailJS.', 'error');
+    } finally {
+      isSendingEmail = false;
+      if (sendBtn) sendBtn.disabled = false;
+    }
+  }
+
   // Gestion des signatures (client + installateur)
   function initSignaturePads() {
     const pads = document.querySelectorAll('.signature-pad');
@@ -632,14 +1101,26 @@ index<!DOCTYPE html>
           resizeCanvas();
         });
       }
-
-      // Si la taille du bloc de signature change (rotation, redimensionnement),
-      // on pourrait re-redimensionner le canvas (au prix d'effacer la signature).
-      // Ici, on ne le fait pas automatiquement pour ne pas effacer une signature déjà faite.
     });
   }
 
-  window.addEventListener('load', initSignaturePads);
+  window.addEventListener('load', function () {
+    try {
+      emailjs.init({
+        publicKey: EMAILJS_PUBLIC_KEY,
+        limitRate: {
+          id: 'attestation-travaux-app',
+          throttle: 10000
+        }
+      });
+    } catch (error) {
+      console.error('EmailJS init error:', error);
+    }
+
+    initSignaturePads();
+    initAcceptanceCheckboxes();
+    initToolbarActions();
+  });
 </script>
 
 </body>
