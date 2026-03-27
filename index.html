@@ -1,0 +1,646 @@
+index<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Attestation de travaux - Challenge Bat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    :root {
+      --font-main: Arial, Helvetica, sans-serif;
+      --font-size: 12px;
+      --border-color: #000;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-main);
+      font-size: var(--font-size);
+      background: #e5e5e5;
+    }
+
+    .no-print {
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .no-print button {
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid #999;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .no-print button:hover {
+      background: #eee;
+    }
+
+    /* Conteneur de page type A4 */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 12px auto;
+      padding: 12mm 15mm;
+      background: white;
+      box-shadow: 0 0 5mm rgba(0,0,0,0.15);
+      color: #000;
+      position: relative;
+    }
+
+    /* Version mobile : plein écran, pas de grosse ombre */
+    @media (max-width: 900px) {
+      .page {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        padding: 12px;
+        box-shadow: none;
+        border-radius: 0;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .page {
+        margin: 0;
+        width: 210mm;
+        min-height: 297mm;
+        box-shadow: none;
+        page-break-after: always;
+      }
+    }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    h1, h2, h3, h4 {
+      margin: 0;
+      font-weight: bold;
+    }
+
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .client-block {
+      flex: 1.2;
+      border: 1px solid var(--border-color);
+      padding: 6px 8px;
+    }
+
+    .client-block .field-line {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+
+    .client-block label {
+      min-width: 50px;
+      font-size: 11px;
+    }
+
+    .client-block input {
+      flex: 1;
+      border: none;
+      border-bottom: 1px solid #000;
+      padding: 2px 3px;
+      font-size: 11px;
+    }
+
+    .client-block input:focus {
+      outline: none;
+      background: #fffce6;
+    }
+
+    .title-block {
+      flex: 1;
+      text-align: right;
+      font-size: 13px;
+    }
+
+    .title-block h1 {
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+
+    .title-block small {
+      font-size: 11px;
+    }
+
+    .company-info {
+      margin-top: 6px;
+      font-size: 9px;
+      text-align: right;
+    }
+
+    .section {
+      margin-top: 10px;
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+
+    .line-field {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .line-field label {
+      font-weight: bold;
+    }
+
+    .line-field input[type="text"] {
+      flex: 1;
+      min-width: 120px;
+      border: none;
+      border-bottom: 1px solid #000;
+      padding: 2px 3px;
+      font-size: 11px;
+    }
+
+    .inline-input {
+      border: none;
+      border-bottom: 1px solid #000;
+      padding: 1px 3px;
+      font-size: 11px;
+      min-width: 80px;
+    }
+
+    .inline-input:focus {
+      outline: none;
+      background: #fffce6;
+    }
+
+    textarea {
+      width: 100%;
+      border: 1px solid #000;
+      padding: 4px;
+      resize: vertical;
+      font-size: 11px;
+      min-height: 50px;
+    }
+
+    textarea:focus {
+      outline: none;
+      background: #fffce6;
+    }
+
+    .checkbox-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 11px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+
+    .checkbox-row label {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      margin-top: 2px;
+      transform: scale(1.1);
+    }
+
+    .small-text {
+      font-size: 9px;
+      margin-top: 3px;
+      margin-bottom: 0;
+    }
+
+    .two-column {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .two-column > div {
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .bottom-infos {
+      margin-top: 10px;
+    }
+
+    .bottom-infos .line-field {
+      margin-bottom: 2px;
+    }
+
+    .time-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-size: 11px;
+      margin-top: 6px;
+      margin-bottom: 8px;
+    }
+
+    .time-line input[type="time"],
+    .time-line input[type="date"] {
+      border: none;
+      border-bottom: 1px solid #000;
+      padding: 2px 3px;
+      font-size: 11px;
+    }
+
+    /* Signatures */
+    .signatures {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    .signature-block {
+      flex: 1;
+      min-width: 180px;
+      text-align: center;
+      font-size: 11px;
+    }
+
+    .signature-block .label {
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+
+    .signature-canvas-wrapper {
+      border: 1px solid #000;
+      height: 120px;
+      position: relative;
+      background: #fff;
+    }
+
+    .signature-canvas-wrapper canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .signature-actions {
+      margin-top: 3px;
+      font-size: 10px;
+    }
+
+    .signature-actions button {
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid #999;
+      background: #f9f9f9;
+      cursor: pointer;
+      font-size: 10px;
+    }
+
+    .signature-actions button:hover {
+      background: #eee;
+    }
+
+    .footer-text {
+      margin-top: 12px;
+      font-size: 9px;
+    }
+
+    .footer-text p {
+      margin: 0;
+    }
+
+    .footer-contact {
+      margin-top: 6px;
+      font-size: 9px;
+      text-align: center;
+      border-top: 1px solid #000;
+      padding-top: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="no-print">
+  <span>Attestation de travaux</span>
+  <button type="button" onclick="window.print()">📄 Exporter en PDF</button>
+</div>
+
+<div class="page">
+  <!-- Haut de page : client + titre -->
+  <div class="top-row">
+    <div class="client-block">
+      <div class="field-line">
+        <label for="client">Client :</label>
+        <input id="client" name="client" type="text">
+      </div>
+      <div class="field-line">
+        <label for="code">Code :</label>
+        <input id="code" name="code" type="text">
+      </div>
+      <div class="field-line">
+        <label for="adresse">Adresse :</label>
+        <input id="adresse" name="adresse" type="text">
+      </div>
+      <div class="field-line">
+        <label for="tel">Tél :</label>
+        <input id="tel" name="tel" type="text">
+      </div>
+      <div class="field-line">
+        <label for="tva">Type TVA :</label>
+        <input id="tva" name="tva" type="text">
+      </div>
+    </div>
+
+    <div class="title-block">
+      <h1>ATTESTATION DE TRAVAUX<span style="font-size: 12px;">(1)</span></h1>
+      <small>(l’achèvement de l’ouvrage n’est pas une condition nécessaire pour la réception)</small>
+
+      <div class="company-info">
+        Entreprise Challenge Bat, habilitée à réaliser la réception des travaux<br>
+        pour le compte d’IKEA Vélizy - 285
+      </div>
+    </div>
+  </div>
+
+  <!-- Nature des travaux -->
+  <div class="section">
+    <div class="line-field">
+      <label for="nature">NATURE DES TRAVAUX :</label>
+      <input id="nature" name="nature" type="text">
+    </div>
+    <div class="line-field">
+      <span>Date :</span>
+      <input class="inline-input" id="date_travaux" name="date_travaux" type="date">
+      <span>Technicien :</span>
+      <input class="inline-input" id="technicien" name="technicien" type="text">
+    </div>
+  </div>
+
+  <!-- Remarques client -->
+  <div class="section">
+    <div class="section-title">Remarques client :</div>
+    <textarea id="remarques_client" name="remarques_client" rows="4"></textarea>
+  </div>
+
+  <!-- Acceptation / réserves -->
+  <div class="section">
+    <div class="checkbox-row">
+      <label>
+        <input type="checkbox" id="acceptation_sans_reserve" name="acceptation_sans_reserve">
+        <span>Le client déclare accepter l’ouvrage <strong>SANS RÉSERVES</strong></span>
+      </label>
+      <label>
+        <input type="checkbox" id="acceptation_avec_reserve" name="acceptation_avec_reserve">
+        <span>Le client déclare accepter l’ouvrage <strong>AVEC LES RÉSERVES SUIVANTES :</strong></span>
+      </label>
+    </div>
+    <textarea id="reservations" name="reservations" rows="5"></textarea>
+
+    <p class="small-text">
+      Aucun défaut visible ne sera pris en charge par l’entreprise après le départ du technicien s’il n’a pas été annoté.
+    </p>
+    <p class="small-text">
+      Il est conseillé au client de ne pas laisser d’eau stagner sur les plans de travail en les essuyant après utilisation.
+    </p>
+  </div>
+
+  <!-- Cases à cocher diverses -->
+  <div class="section">
+    <div class="checkbox-row">
+      <label>
+        <input type="checkbox" id="client_absent" name="client_absent">
+        <span>client absent lors de la restitution du chantier</span>
+      </label>
+      <label>
+        <input type="checkbox" id="poignees_non_posees" name="poignees_non_posees">
+        <span>poignées non posées (car non précisé par le client)</span>
+      </label>
+      <label>
+        <input type="checkbox" id="baguette_non_posee" name="baguette_non_posee">
+        <span>baguette de jonction non posée (2)</span>
+      </label>
+      <label>
+        <input type="checkbox" id="pas_rev_mural" name="pas_rev_mural">
+        <span>pas de revêtement mural posé (2)</span>
+      </label>
+      <label>
+        <input type="checkbox" id="appareils_non_raccordes" name="appareils_non_raccordes">
+        <span>appareils électroménager non raccordés (réseau électrique existant ne respectant pas la norme en vigueur)</span>
+      </label>
+      <label>
+        <input type="checkbox" id="joints_non_faits" name="joints_non_faits">
+        <span>joints silicone non faits (2)</span>
+      </label>
+      <label>
+        <input type="checkbox" id="films_non_retires" name="films_non_retires">
+        <span>films protecteurs non retirés (2)</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Infos technicien + reste à faire -->
+  <div class="section two-column">
+    <div>
+      <div class="section-title">Infos pour technicien :</div>
+      <textarea id="infos_technicien" name="infos_technicien" rows="4"></textarea>
+    </div>
+    <div>
+      <div class="section-title">Reste à faire :</div>
+      <textarea id="reste_a_faire" name="reste_a_faire" rows="4"></textarea>
+    </div>
+  </div>
+
+  <!-- Infos diverses bas de page -->
+  <div class="section bottom-infos">
+    <div class="line-field">
+      <label for="date_livraison">Date de livraison annoncée par le client :</label>
+      <input id="date_livraison" name="date_livraison" type="date" class="inline-input">
+    </div>
+    <div class="line-field">
+      <label for="solde">Solde à récupérer :</label>
+      <input id="solde" name="solde" type="text" class="inline-input">
+    </div>
+  </div>
+
+  <!-- Heures & date de réception -->
+  <div class="time-line">
+    <span>Heure d’arrivée :</span>
+    <input id="heure_arrivee" name="heure_arrivee" type="time">
+    <span>Heure de départ :</span>
+    <input id="heure_depart" name="heure_depart" type="time">
+    <span>Le :</span>
+    <input id="date_reception" name="date_reception" type="date">
+  </div>
+
+  <!-- Signatures -->
+  <div class="signatures">
+    <div class="signature-block">
+      <div class="label">Signature installateur :</div>
+      <div class="signature-canvas-wrapper signature-pad">
+        <canvas></canvas>
+      </div>
+      <div class="signature-actions">
+        <button type="button" class="signature-clear">Effacer la signature</button>
+      </div>
+    </div>
+    <div class="signature-block">
+      <div class="label">Signature client :</div>
+      <div class="signature-canvas-wrapper signature-pad">
+        <canvas></canvas>
+      </div>
+      <div class="signature-actions">
+        <button type="button" class="signature-clear">Effacer la signature</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pied de page -->
+  <div class="footer-text">
+    <p>(1) réalisée en deux exemplaires</p>
+    <p>(2) sous la demande du client</p>
+  </div>
+
+  <div class="footer-contact">
+    118 Avenue du Maréchal de Lattre de Tassigny 94120 FONTENAY sous BOIS – Tél 01 75 64 01 63 – contact@challengebat.fr
+  </div>
+</div>
+
+<script>
+  // Gestion des signatures (client + installateur)
+  function initSignaturePads() {
+    const pads = document.querySelectorAll('.signature-pad');
+
+    pads.forEach(function (wrapper) {
+      const canvas = wrapper.querySelector('canvas');
+      const ctx = canvas.getContext('2d');
+
+      function resizeCanvas() {
+        const rect = wrapper.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000';
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      resizeCanvas();
+
+      let drawing = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches && e.touches.length > 0) {
+          return {
+            x: e.touches[0].clientX - rect.left,
+            y: e.touches[0].clientY - rect.top
+          };
+        } else {
+          return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+          };
+        }
+      }
+
+      function startDraw(e) {
+        e.preventDefault();
+        drawing = true;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+      }
+
+      function draw(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        lastX = pos.x;
+        lastY = pos.y;
+      }
+
+      function endDraw(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        drawing = false;
+      }
+
+      // Souris
+      canvas.addEventListener('mousedown', startDraw);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', endDraw);
+      canvas.addEventListener('mouseleave', endDraw);
+
+      // Tactile
+      canvas.addEventListener('touchstart', startDraw, { passive: false });
+      canvas.addEventListener('touchmove', draw, { passive: false });
+      canvas.addEventListener('touchend', endDraw, { passive: false });
+      canvas.addEventListener('touchcancel', endDraw, { passive: false });
+
+      // Bouton effacer
+      const clearBtn = wrapper.parentElement.querySelector('.signature-clear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+          resizeCanvas();
+        });
+      }
+
+      // Si la taille du bloc de signature change (rotation, redimensionnement),
+      // on pourrait re-redimensionner le canvas (au prix d'effacer la signature).
+      // Ici, on ne le fait pas automatiquement pour ne pas effacer une signature déjà faite.
+    });
+  }
+
+  window.addEventListener('load', initSignaturePads);
+</script>
+
+</body>
+</html>
