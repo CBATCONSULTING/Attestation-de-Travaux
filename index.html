@@ -499,10 +499,6 @@
         <input id="client" name="client" type="text">
       </div>
       <div class="field-line">
-        <label for="code">Code :</label>
-        <input id="code" name="code" type="text">
-      </div>
-      <div class="field-line">
         <label for="adresse">Adresse :</label>
         <input id="adresse" name="adresse" type="text">
       </div>
@@ -826,7 +822,6 @@
     return `
       <h2>Attestation de travaux</h2>
       <p><strong>Client :</strong> ${escapeHtml(data.client || 'Non renseigné')}</p>
-      <p><strong>Code :</strong> ${escapeHtml(data.code || 'Non renseigné')}</p>
       <p><strong>Adresse :</strong> ${escapeHtml(data.adresse || 'Non renseignée')}</p>
       <p><strong>Téléphone :</strong> ${escapeHtml(data.tel || 'Non renseigné')}</p>
       <p><strong>Type TVA :</strong> ${escapeHtml(data.tva || 'Non renseigné')}</p>
@@ -853,7 +848,6 @@
     return [
       'Attestation de travaux',
       'Client : ' + (data.client || 'Non renseigné'),
-      'Code : ' + (data.code || 'Non renseigné'),
       'Adresse : ' + (data.adresse || 'Non renseignée'),
       'Téléphone : ' + (data.tel || 'Non renseigné'),
       'Type TVA : ' + (data.tva || 'Non renseigné'),
@@ -1017,7 +1011,6 @@
         to_email: data.recipient_email,
         email_subject: data.email_subject,
         client: data.client,
-        code: data.code,
         adresse: data.adresse,
         tel: data.tel,
         tva: data.tva,
